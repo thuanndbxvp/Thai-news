@@ -12,8 +12,8 @@ export const AI_PROVIDER_OPTIONS: LabeledOption<AiProvider>[] = [
 ];
 
 export const GEMINI_MODELS: LabeledOption<string>[] = [
-    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro' },
-    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+    { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (Khuyên dùng)' },
+    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (New)' },
     { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
 ];
 

@@ -60,6 +60,7 @@ export interface LibraryItem {
 export interface GenerationParams {
   title: string;
   outlineContent: string;
+  referenceUrls: string; // New field for URLs
   targetAudience: string; // Always 'Thai'
   styleOptions: StyleOptions;
   keywords: string;

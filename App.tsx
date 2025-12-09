@@ -10,7 +10,7 @@ import { AllVisualPromptsModal } from './components/AllVisualPromptsModal';
 import { SummarizeModal } from './components/SummarizeModal';
 import { SavedIdeasModal } from './components/SavedIdeasModal';
 import { SideToolsPanel } from './components/SideToolsPanel';
-import { generateScript, generateScriptOutline, generateTopicSuggestions, reviseScript, generateScriptPart, extractDialogue, generateKeywordSuggestions, validateApiKey, generateVisualPrompt, generateAllVisualPrompts, summarizeScriptForScenes, suggestStyleOptions, parseIdeasFromFile } from './services/aiService';
+import { generateScript, generateTopicSuggestions, reviseScript, generateScriptPart, extractDialogue, generateKeywordSuggestions, validateApiKey, generateVisualPrompt, generateAllVisualPrompts, summarizeScriptForScenes, suggestStyleOptions } from './services/aiService';
 import type { StyleOptions, FormattingOptions, LibraryItem, GenerationParams, VisualPrompt, AllVisualPromptsResult, ScriptPartSummary, ScriptType, NumberOfSpeakers, CachedData, TopicSuggestionItem, SavedIdea, AiProvider, WordCountStats, AudienceAge, ContentFocus } from './types';
 import { TONE_OPTIONS, STYLE_OPTIONS, VOICE_OPTIONS, LANGUAGE_OPTIONS, GEMINI_MODELS } from './constants';
 
@@ -57,6 +57,8 @@ const calculateWordCountsFromDialogue = (dialogueObject: Record<string, string>)
 const App: React.FC = () => {
   const [title, setTitle] = useState<string>('');
   const [outlineContent, setOutlineContent] = useState<string>('');
+  const [referenceUrls, setReferenceUrls] = useState<string>('');
+  
   // Set Default to Thai (index 0) - Fixed for News App
   const [targetAudience, setTargetAudience] = useState<string>(LANGUAGE_OPTIONS[0].value);
   const [styleOptions, setStyleOptions] = useState<StyleOptions>({
@@ -92,10 +94,6 @@ const App: React.FC = () => {
   const [isSuggesting, setIsSuggesting] = useState<boolean>(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [hasGeneratedTopicSuggestions, setHasGeneratedTopicSuggestions] = useState<boolean>(false);
-
-  const [uploadedIdeas, setUploadedIdeas] = useState<TopicSuggestionItem[]>([]);
-  const [isParsing, setIsParsing] = useState<boolean>(false);
-  const [parsingError, setParsingError] = useState<string | null>(null);
 
   const [keywordSuggestions, setKeywordSuggestions] = useState<string[]>([]);
   const [isSuggestingKeywords, setIsSuggestingKeywords] = useState<boolean>(false);
@@ -339,19 +337,6 @@ const App: React.FC = () => {
         setIsSavedIdeasModalOpen(false);
     }, []);
 
-    const handleParseFile = useCallback(async (fileContent: string) => {
-        setIsParsing(true);
-        setParsingError(null);
-        setUploadedIdeas([]);
-        try {
-            const ideas = await parseIdeasFromFile(fileContent, aiProvider, selectedModel);
-            setUploadedIdeas(ideas);
-        } catch (err) {
-            setParsingError(err instanceof Error ? err.message : 'Lỗi không xác định khi phân tích file.');
-        } finally {
-            setIsParsing(false);
-        }
-    }, [aiProvider, selectedModel]);
 
   const handleGenerateSuggestions = useCallback(async () => {
     if (!title.trim()) {
@@ -434,6 +419,7 @@ const App: React.FC = () => {
     const params: GenerationParams = { 
         title, 
         outlineContent, 
+        referenceUrls, // Pass Reference URLs
         targetAudience, 
         styleOptions, 
         keywords, 
@@ -454,7 +440,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [title, outlineContent, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
+  }, [title, outlineContent, referenceUrls, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
   
   const handleReviseScript = useCallback(async () => {
     if (!revisionPrompt.trim() || !generatedScript.trim()) {
@@ -472,6 +458,7 @@ const App: React.FC = () => {
     const params: GenerationParams = { 
         title, 
         outlineContent, 
+        referenceUrls,
         targetAudience, 
         styleOptions, 
         keywords, 
@@ -494,12 +481,9 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [revisionPrompt, generatedScript, title, outlineContent, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
+  }, [revisionPrompt, generatedScript, title, outlineContent, referenceUrls, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
 
   const handleGenerateNextPart = useCallback(async () => {
-      // For sequential, we might want to keep the old logic or adapt it.
-      // Since News Script is usually short enough (8-12m) to be done in one go with 1.5 Pro, 
-      // we might not use this much. But kept for compatibility if outlines are used.
       if (!isGeneratingSequentially || currentPartIndex >= outlineParts.length) {
           setIsGeneratingSequentially(false);
           return;
@@ -513,7 +497,7 @@ const App: React.FC = () => {
           
           const fullOutline = outlineParts.join('\n');
           const currentPartOutline = outlineParts[currentPartIndex];
-          const params = { title, outlineContent, targetAudience, styleOptions, keywords, formattingOptions, wordCount: finalWordCount, scriptParts, scriptType, numberOfSpeakers, audienceAge, contentFocus };
+          const params = { title, outlineContent, referenceUrls, targetAudience, styleOptions, keywords, formattingOptions, wordCount: finalWordCount, scriptParts, scriptType, numberOfSpeakers, audienceAge, contentFocus };
           const newPart = await generateScriptPart(fullOutline, generatedScript, currentPartOutline, params, aiProvider, selectedModel);
           
           setGeneratedScript(prev => (prev ? prev + '\n\n' : '') + newPart);
@@ -530,7 +514,7 @@ const App: React.FC = () => {
       } finally {
           setIsLoading(false);
       }
-  }, [currentPartIndex, outlineParts, isGeneratingSequentially, generatedScript, title, outlineContent, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
+  }, [currentPartIndex, outlineParts, isGeneratingSequentially, generatedScript, title, outlineContent, referenceUrls, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptParts, scriptType, numberOfSpeakers, lengthType, videoDuration, aiProvider, selectedModel, audienceAge, contentFocus]);
   
   const handleStartSequentialGeneration = useCallback(() => {
     if (!generatedScript.trim() || !generatedScript.includes("### Dàn Ý Chi Tiết")) {
@@ -749,6 +733,8 @@ const App: React.FC = () => {
             setTitle={setTitle}
             outlineContent={outlineContent}
             setOutlineContent={setOutlineContent}
+            referenceUrls={referenceUrls}
+            setReferenceUrls={setReferenceUrls}
             onGenerateSuggestions={handleGenerateSuggestions}
             isSuggesting={isSuggesting}
             suggestions={topicSuggestions}
@@ -788,10 +774,6 @@ const App: React.FC = () => {
             savedIdeas={savedIdeas}
             onSaveIdea={handleSaveIdea}
             onOpenSavedIdeasModal={() => setIsSavedIdeasModalOpen(true)}
-            onParseFile={handleParseFile}
-            isParsingFile={isParsing}
-            parsingFileError={parsingError}
-            uploadedIdeas={uploadedIdeas}
             aiProvider={aiProvider}
             setAiProvider={setAiProvider}
             selectedModel={selectedModel}

@@ -191,7 +191,7 @@ const getThaiCulturalPrompts = (language: string): string => {
 };
 
 export const generateScript = async (params: GenerationParams, provider: AiProvider, model: string): Promise<string> => {
-    const { title, outlineContent, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptType, numberOfSpeakers, audienceAge, contentFocus } = params;
+    const { title, outlineContent, referenceUrls, targetAudience, styleOptions, keywords, formattingOptions, wordCount, scriptType, numberOfSpeakers, audienceAge, contentFocus } = params;
     const { tone, style, voice } = styleOptions;
     const { includeIntro, includeOutro } = formattingOptions;
 
@@ -201,8 +201,12 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
     let prompt: string;
 
     const outlineInstruction = outlineContent.trim() 
-        ? `**User's Specific News Details / Outline:** "${outlineContent}". Use this as the core information for the news report.`
-        : `**User's Specific News Details:** No specific details provided. Please construct a realistic news report based on the title "${title}" using typical current event structures.`;
+        ? `**User's Specific News Details / Summary:** "${outlineContent}". Use this as the core information for the news report.`
+        : `**User's Specific News Details:** No specific details provided in text.`;
+
+    const referenceInstruction = referenceUrls.trim()
+        ? `**CRITICAL: Reference Source URLs:**\nThe user has provided the following URLs to be used as the PRIMARY source material for this news report:\n${referenceUrls}\n\n**Action:** You must synthesize the information that would typically be found in these types of news sources (or if you can access them via your internal knowledge base/browsing capabilities). If you cannot access the specific live URL, generate a highly plausible news report based on the Title "${title}" and the likely content of such links, while clearly marking it as a "Simulation based on provided context".`
+        : `**Reference Source URLs:** None provided. Rely on internal knowledge and the provided title/summary.`;
 
     // Common News Persona
     const roleDefinition = `
@@ -226,11 +230,12 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
             **Task:** Create a News Podcast Script in Thai.
             **Title:** "${title}"
             ${outlineInstruction}
+            ${referenceInstruction}
             **Target Length:** Approximately ${wordCount} words.
 
             **Structure:**
             1. **Intro:** Warm greeting, introduce the hosts (assign Thai nicknames like P'A, Nong B), and the main topic.
-            2. **Main Discussion:** Discuss the news topic in depth.
+            2. **Main Discussion:** Discuss the news topic in depth based on the provided references/summary.
                - If discussing politics/border issues, keep it balanced.
                - Share opinions but always respect differing views.
             3. **Outro:** Summary and soft Call to Action (subscribe, comment respectfully).
@@ -250,6 +255,7 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
             **Task:** Create a Daily News Video Script in Thai.
             **Title:** "${title}"
             ${outlineInstruction}
+            ${referenceInstruction}
             **Target Length:** Approximately ${wordCount} words.
             **Keywords to Include:** ${keywords || 'None'}
 
@@ -261,6 +267,7 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
                - Emphasize neutrality and verified info.
             
             2. **SEGMENT A: MAIN NEWS (Domestic/Politics/Society)**
+               - Synthesize the key facts from the provided Reference URLs or Summary.
                - Context: Who, When, Where.
                - What happened (The decision/event).
                - Viewpoints from relevant parties (Govt, Opposition, Experts).
@@ -288,7 +295,8 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
             For each part, provide:
             - **Timestamp Estimate**
             - **Visual/Camera Cues:** (e.g., [Show map of border], [Cut to B-roll of parliament])
-            - **Script (Lời thoại):** The spoken Thai text.
+            - **Script (Thai):** The spoken Thai text.
+            - **Vietnamese Meaning (Ý nghĩa Tiếng Việt):** A concise summary/translation of this segment for the editor to understand the context.
 
             **Self-Correction Checklist (Internal Monologue - Do not output):**
             - Is the tone polite (Pi-Nong)?
@@ -296,6 +304,7 @@ export const generateScript = async (params: GenerationParams, provider: AiProvi
             - Did I avoid insulting the Royal Family or Religion?
             - Did I avoid inciting hatred against neighbors (Cambodia)?
             - Is the word count close to target?
+            - **Did I include the Vietnamese translation/summary at the end of each section?**
 
             Generate the full script now.
         `;
@@ -345,9 +354,10 @@ export const generateTopicSuggestions = async (theme: string, provider: AiProvid
     
     Each idea must include:
     - 'title': A catchy but accurate news headline in Thai.
+    - 'vietnameseTitle': The Vietnamese translation of the headline.
     - 'outline': A 2-3 sentence summary of the news story in Thai.
     
-    Output JSON: {"suggestions": [{"title": "...", "outline": "..."}, ...]}
+    Output JSON: {"suggestions": [{"title": "...", "vietnameseTitle": "...", "outline": "..."}, ...]}
     `;
 
     try {
@@ -365,7 +375,7 @@ export const parseIdeasFromFile = async (fileContent: string, provider: AiProvid
     const prompt = `
         You are a data extraction assistant. Parse the text for news ideas.
         Input: """${fileContent}"""
-        Extract 'title' (Thai), 'vietnameseTitle' (Thai), and 'outline' (Thai).
+        Extract 'title' (Thai), 'vietnameseTitle' (Thai/Vietnamese translation), and 'outline' (Thai).
         Output JSON array.
     `;
     
@@ -417,6 +427,7 @@ export const reviseScript = async (originalScript: string, revisionInstruction: 
       - Maintain strict Thai News persona (${tone}, ${style}, ${voice}).
       - Keep word count close to ${wordCount}.
       - Output full revised script in Thai.
+      - **Important:** Ensure every section still has the "Vietnamese Meaning" block at the end.
     `;
 
     try {
@@ -446,6 +457,7 @@ export const generateScriptPart = async (fullOutline: string, previousPartsScrip
       - Maintain polite ${tone} tone.
       - Ensure smooth transition from previous part.
       - Output in Thai.
+      - **Include:** "Vietnamese Meaning" (Translation/Summary) at the end of the segment.
     `;
     
     try {

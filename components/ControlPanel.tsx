@@ -4,17 +4,18 @@ import { OptionSelector } from './OptionSelector';
 import { SparklesIcon } from './icons/SparklesIcon';
 import type { StyleOptions, FormattingOptions, Tone, Style, Voice, ScriptType, NumberOfSpeakers, TopicSuggestionItem, SavedIdea, AiProvider, AudienceAge, ContentFocus } from '../types';
 import { TONE_OPTIONS, STYLE_OPTIONS, VOICE_OPTIONS, SCRIPT_TYPE_OPTIONS, NUMBER_OF_SPEAKERS_OPTIONS, AI_PROVIDER_OPTIONS, GEMINI_MODELS, OPENAI_MODELS, AUDIENCE_AGE_OPTIONS, CONTENT_FOCUS_OPTIONS } from '../constants';
-import { IdeaBrainstorm } from './IdeaBrainstorm';
 import { TONE_EXPLANATIONS, STYLE_EXPLANATIONS, VOICE_EXPLANATIONS } from '../constants/explanations';
 import { BookmarkIcon } from './icons/BookmarkIcon';
-import { IdeaFileUploader } from './IdeaFileUploader';
 import { LightbulbIcon } from './icons/LightbulbIcon';
+import { GlobeIcon } from './icons/GlobeIcon';
 
 interface ControlPanelProps {
   title: string;
   setTitle: (title: string) => void;
   outlineContent: string;
   setOutlineContent: (content: string) => void;
+  referenceUrls: string;
+  setReferenceUrls: (urls: string) => void;
   onGenerateSuggestions: () => void;
   isSuggesting: boolean;
   suggestions: TopicSuggestionItem[];
@@ -54,10 +55,6 @@ interface ControlPanelProps {
   savedIdeas: SavedIdea[];
   onSaveIdea: (idea: TopicSuggestionItem) => void;
   onOpenSavedIdeasModal: () => void;
-  onParseFile: (content: string) => void;
-  isParsingFile: boolean;
-  parsingFileError: string | null;
-  uploadedIdeas: TopicSuggestionItem[];
   aiProvider: AiProvider;
   setAiProvider: (provider: AiProvider) => void;
   selectedModel: string;
@@ -71,6 +68,7 @@ interface ControlPanelProps {
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   title, setTitle,
   outlineContent, setOutlineContent,
+  referenceUrls, setReferenceUrls,
   onGenerateSuggestions, isSuggesting, suggestions, suggestionError,
   styleOptions, setStyleOptions,
   keywords, setKeywords,
@@ -81,7 +79,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   numberOfSpeakers, setNumberOfSpeakers,
   videoDuration, setVideoDuration,
   savedIdeas, onSaveIdea, onOpenSavedIdeasModal,
-  onParseFile, isParsingFile, parsingFileError, uploadedIdeas,
   aiProvider, setAiProvider, selectedModel, setSelectedModel,
   audienceAge, setAudienceAge,
   contentFocus, setContentFocus
@@ -182,18 +179,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         />
         <textarea
           id="outline"
-          rows={3}
-          className="mt-2 w-full bg-primary/70 border border-secondary rounded-md p-2 text-text-primary focus:ring-2 focus:ring-accent focus:border-accent transition"
-          placeholder="Chi tiết tin (tùy chọn): VD: Thủ tướng phát biểu lúc 9h sáng về..."
+          rows={2}
+          className="mt-2 w-full bg-primary/70 border border-secondary rounded-md p-2 text-text-primary focus:ring-2 focus:ring-accent focus:border-accent transition text-sm"
+          placeholder="Chi tiết tóm tắt (tùy chọn)..."
           value={outlineContent}
           onChange={(e) => setOutlineContent(e.target.value)}
         />
-        <IdeaBrainstorm setTitle={setTitle} setOutlineContent={setOutlineContent} />
-        <IdeaFileUploader 
-            onParse={onParseFile}
-            isLoading={isParsingFile}
-            error={parsingFileError}
-        />
+        
+        {/* URL Input Section */}
+        <div className="mt-2 relative">
+            <div className="absolute top-2 left-2 text-text-secondary">
+                <GlobeIcon className="w-4 h-4" />
+            </div>
+            <textarea
+                id="referenceUrls"
+                rows={3}
+                className="w-full bg-primary/70 border border-secondary rounded-md p-2 pl-8 text-text-primary focus:ring-2 focus:ring-accent focus:border-accent transition text-sm"
+                placeholder="Dán các đường link (URL) bài báo tham khảo vào đây (mỗi dòng 1 link). AI sẽ tổng hợp tin từ nguồn này."
+                value={referenceUrls}
+                onChange={(e) => setReferenceUrls(e.target.value)}
+            />
+        </div>
         
         <div className="grid grid-cols-2 gap-2 mt-4">
             <button 
@@ -214,7 +220,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
         {suggestionError && <p className="text-red-400 text-sm mt-2">{suggestionError}</p>}
         {suggestions.length > 0 && <IdeaList ideaList={suggestions} listTitle="Tin tức gợi ý" />}
-        {uploadedIdeas.length > 0 && <IdeaList ideaList={uploadedIdeas} listTitle="Tin từ File" />}
       </div>
       
       {/* 2. Provider */}
